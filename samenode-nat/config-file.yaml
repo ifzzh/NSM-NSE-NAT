@@ -1,0 +1,47 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+    name: nat-config-file
+data:
+    config.yaml: |
+        # NAT Network Service Endpoint Configuration
+        #
+        # This configuration defines SNAT rules for the NAT NSE.
+        # It translates internal private IPs (10.0.0.0/8) to external public IP (203.0.113.10).
+
+        name: "nat-nse-samenode"
+
+        # External NAT IP address (public IP used for SNAT)
+        natIP: "203.0.113.10"
+
+        # Optional: Port range for NAT port allocation
+        # If not specified, VPP defaults to 1024-65535
+        portRange:
+          start: 10000
+          end: 20000
+
+        # SNAT rules: Define which source networks should be translated
+        snatRules:
+          - srcNet: "10.0.0.0/8"
+            # All traffic from 10.0.0.0/8 will be SNAT'd to natIP
+          - srcNet: "172.16.0.0/12"
+            # All traffic from 172.16.0.0/12 will be SNAT'd to natIP
+          - srcNet: "192.168.0.0/16"
+            # All traffic from 192.168.0.0/16 will be SNAT'd to natIP
+
+        # Optional: DNAT rules (not used in SNAT MVP, reserved for Phase 4)
+        # dnatRules:
+        #   - externalIP: "203.0.113.10"
+        #     externalPort: 80
+        #     internalIP: "10.0.1.100"
+        #     internalPort: 8080
+        #     protocol: "tcp"
+
+        # Optional: NAT session timeouts (in seconds)
+        # If not specified, VPP uses default values
+        # timeouts:
+        #   tcpEstablished: 7200  # 2 hours for established TCP connections
+        #   tcpTransitory: 240    # 4 minutes for transitory TCP connections
+        #   udp: 300              # 5 minutes for UDP sessions
+        #   icmp: 60              # 1 minute for ICMP sessions

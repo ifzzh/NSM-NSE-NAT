@@ -1,0 +1,37 @@
+# Git
+.git/
+.gitignore
+
+# Build artifacts
+*.exe
+*.test
+*.out
+vendor/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log*
+
+# Environment files
+.env*
+
+# Test files
+coverage/
+*.coverprofile
+
+# Documentation
+*.md
+docs/
+
+# Docker files
+Dockerfile*
+.dockerignore
+
+# Test suites
+samenode-nat/

@@ -40,14 +40,14 @@ import (
 	"github.com/networkservicemesh/sdk/pkg/tools/token"
 	"github.com/networkservicemesh/sdk/pkg/tools/tracing"
 
-	_ "github.com/networkservicemesh/nsm-nse-app/cmd-nse-firewall-vpp-refactored/internal/imports"
+	_ "github.com/networkservicemesh/cmd-nse-nat-vpp/internal/imports"
 
-	"github.com/networkservicemesh/nsm-nse-app/cmd-nse-firewall-vpp-refactored/internal/firewall"
-	"github.com/networkservicemesh/nsm-nse-app/cmd-nse-firewall-vpp-refactored/pkg/config"
-	"github.com/networkservicemesh/nsm-nse-app/cmd-nse-firewall-vpp-refactored/pkg/lifecycle"
-	"github.com/networkservicemesh/nsm-nse-app/cmd-nse-firewall-vpp-refactored/pkg/registry"
-	"github.com/networkservicemesh/nsm-nse-app/cmd-nse-firewall-vpp-refactored/pkg/server"
-	"github.com/networkservicemesh/nsm-nse-app/cmd-nse-firewall-vpp-refactored/pkg/vpp"
+	"github.com/networkservicemesh/cmd-nse-nat-vpp/internal/nat"
+	"github.com/networkservicemesh/cmd-nse-nat-vpp/pkg/config"
+	"github.com/networkservicemesh/cmd-nse-nat-vpp/pkg/lifecycle"
+	"github.com/networkservicemesh/cmd-nse-nat-vpp/pkg/registry"
+	"github.com/networkservicemesh/cmd-nse-nat-vpp/pkg/server"
+	"github.com/networkservicemesh/cmd-nse-nat-vpp/pkg/vpp"
 )
 
 func main() {
@@ -69,7 +69,7 @@ func main() {
 	log.FromContext(ctx).Infof("1: get config from environment")
 	log.FromContext(ctx).Infof("2: retrieve spiffe svid")
 	log.FromContext(ctx).Infof("3: create grpc client options")
-	log.FromContext(ctx).Infof("4: create firewall network service endpoint")
+	log.FromContext(ctx).Infof("4: create nat network service endpoint")
 	log.FromContext(ctx).Infof("5: create grpc and mount nse")
 	log.FromContext(ctx).Infof("6: register nse with nsm")
 	log.FromContext(ctx).Infof("a final success message with start time duration")
@@ -84,8 +84,12 @@ func main() {
 		logrus.Fatal(err.Error())
 	}
 
-	// 加载ACL规则
-	cfg.LoadACLRules(ctx)
+	// 加载NAT配置
+	if err := cfg.LoadNATConfig(); err != nil {
+		logrus.Fatalf("failed to load NAT config: %v", err)
+	}
+	log.FromContext(ctx).Infof("NAT config loaded: natIP=%s, snatRules=%d, dnatRules=%d",
+		cfg.NATConfig.NatIP, len(cfg.NATConfig.SnatRules), len(cfg.NATConfig.DnatRules))
 
 	// 验证配置
 	if err := cfg.Validate(); err != nil {
@@ -155,7 +159,7 @@ func main() {
 	)
 
 	// ********************************************************************************
-	log.FromContext(ctx).Infof("executing phase 4: create firewall network service endpoint")
+	log.FromContext(ctx).Infof("executing phase 4: create nat network service endpoint")
 	// ********************************************************************************
 	vppConn, vppErrCh, err := vpp.StartAndDial(ctx)
 	if err != nil {
@@ -163,12 +167,17 @@ func main() {
 	}
 	lifecycle.MonitorErrorChannel(ctx, cancel, vppErrCh)
 
-	// 创建firewall端点
-	firewallEndpoint := firewall.NewEndpoint(ctx, firewall.Options{
+	// 创建NAT配置器
+	// 使用vppConn (api.Connection) 直接创建，无需Channel
+	natConfigurator := vpp.NewNATConfigurator(vppConn)
+
+	// 创建NAT端点
+	natEndpoint := nat.NewEndpoint(ctx, nat.Options{
 		Name:             cfg.Name,
 		ConnectTo:        &cfg.ConnectTo,
 		Labels:           cfg.Labels,
-		ACLRules:         cfg.ACLConfig,
+		NATConfig:        cfg.NATConfig,
+		NATConfigurator:  natConfigurator,
 		MaxTokenLifetime: cfg.MaxTokenLifetime,
 		VPPConn:          vppConn,
 		Source:           source,
@@ -176,7 +185,7 @@ func main() {
 	})
 
 	// ********************************************************************************
-	log.FromContext(ctx).Infof("executing phase 5: create grpc server and register firewall-server")
+	log.FromContext(ctx).Infof("executing phase 5: create grpc server and register nat-server")
 	// ********************************************************************************
 	srvResult, err := server.New(ctx, server.Options{
 		TLSConfig: tlsServerConfig,
@@ -188,8 +197,8 @@ func main() {
 	}
 	defer func() { _ = os.RemoveAll(srvResult.TmpDir) }()
 
-	// 注册firewall端点到gRPC服务器
-	firewallEndpoint.Register(srvResult.Server)
+	// 注册NAT端点到gRPC服务器
+	natEndpoint.Register(srvResult.Server)
 
 	// 监控服务器错误
 	lifecycle.MonitorErrorChannel(ctx, cancel, srvResult.ErrCh)

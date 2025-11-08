@@ -7,10 +7,10 @@ spec:
   payload: ETHERNET
   matches:
     - source_selector:
-        app: firewall
+        app: nat
       routes:
         - destination_selector:
             app: server
     - routes:
         - destination_selector:
-            app: firewall
+            app: nat

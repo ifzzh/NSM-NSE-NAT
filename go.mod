@@ -1,4 +1,4 @@
-module github.com/networkservicemesh/nsm-nse-app/cmd-nse-firewall-vpp-refactored
+module github.com/networkservicemesh/cmd-nse-nat-vpp
 
 go 1.23.8
 

@@ -28,7 +28,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/networkservicemesh/nsm-nse-app/cmd-nse-firewall-vpp-refactored/pkg/config"
+	"github.com/networkservicemesh/cmd-nse-nat-vpp/pkg/config"
 	"github.com/stretchr/testify/require"
 )
 

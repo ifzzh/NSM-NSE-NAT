@@ -18,7 +18,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package firewall
+package nat
 
 import (
 	"context"
@@ -26,8 +26,6 @@ import (
 	"time"
 
 	"github.com/networkservicemesh/api/pkg/api/networkservice"
-	"github.com/networkservicemesh/govpp/binapi/acl_types"
-	"github.com/networkservicemesh/sdk-vpp/pkg/networkservice/acl"
 	"github.com/networkservicemesh/sdk-vpp/pkg/networkservice/mechanisms/memif"
 	"github.com/networkservicemesh/sdk-vpp/pkg/networkservice/up"
 	"github.com/networkservicemesh/sdk-vpp/pkg/networkservice/xconnect"
@@ -47,15 +45,16 @@ import (
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 	"google.golang.org/grpc"
 
-	"github.com/networkservicemesh/nsm-nse-app/cmd-nse-firewall-vpp-refactored/pkg/vpp"
+	"github.com/networkservicemesh/cmd-nse-nat-vpp/pkg/config"
+	"github.com/networkservicemesh/cmd-nse-nat-vpp/pkg/vpp"
 )
 
-// Endpoint Firewall网络服务端点
+// Endpoint NAT网络服务端点
 type Endpoint struct {
 	endpoint.Endpoint
 }
 
-// Options Firewall端点配置选项
+// Options NAT端点配置选项
 type Options struct {
 	// Name 端点名称
 	Name string
@@ -66,8 +65,11 @@ type Options struct {
 	// Labels 端点标签
 	Labels map[string]string
 
-	// ACLRules ACL规则列表
-	ACLRules []acl_types.ACLRule
+	// NATConfig NAT配置
+	NATConfig *config.NATConfig
+
+	// NATConfigurator VPP NAT配置器
+	NATConfigurator *vpp.NATConfigurator
 
 	// MaxTokenLifetime token最大生命周期
 	MaxTokenLifetime time.Duration
@@ -82,10 +84,10 @@ type Options struct {
 	ClientOptions []grpc.DialOption
 }
 
-// NewEndpoint 创建Firewall网络服务端点
+// NewEndpoint 创建NAT网络服务端点
 //
-// 创建包含完整NSM链的firewall端点，包括：
-//   - ACL规则处理
+// 创建包含完整NSM链的NAT端点，包括：
+//   - NAT配置处理（SNAT/DNAT）
 //   - VPP xconnect
 //   - Memif机制支持
 //   - 文件描述符传递
@@ -96,15 +98,16 @@ type Options struct {
 //   - opts: 端点配置选项
 //
 // 返回值：
-//   - endpoint: Firewall端点实例
+//   - endpoint: NAT端点实例
 //
 // 示例：
 //
-//	ep := firewall.NewEndpoint(ctx, firewall.Options{
-//	    Name:             "firewall-server",
+//	ep := nat.NewEndpoint(ctx, nat.Options{
+//	    Name:             "nat-server",
 //	    ConnectTo:        &cfg.ConnectTo,
 //	    Labels:           cfg.Labels,
-//	    ACLRules:         cfg.ACLConfig,
+//	    NATConfig:        natConfig,
+//	    NATConfigurator:  natCfg,
 //	    MaxTokenLifetime: cfg.MaxTokenLifetime,
 //	    VPPConn:          vppConn,
 //	    Source:           source,
@@ -133,8 +136,8 @@ func NewEndpoint(ctx context.Context, opts Options) *Endpoint {
 			clienturl.NewServer(opts.ConnectTo),
 			// VPP xconnect
 			xconnect.NewServer(opts.VPPConn),
-			// ACL规则应用
-			acl.NewServer(opts.VPPConn, opts.ACLRules),
+			// NAT配置应用（替换原ACL）
+			NewNATServer(opts.NATConfig, opts.NATConfigurator),
 			// Memif机制支持
 			mechanisms.NewServer(map[string]networkservice.NetworkServiceServer{
 				memif.MECHANISM: chain.NewNetworkServiceServer(
@@ -157,6 +160,8 @@ func NewEndpoint(ctx context.Context, opts Options) *Endpoint {
 						passthrough.NewClient(opts.Labels),
 						// VPP接口UP（客户端侧）
 						up.NewClient(ctx, opts.VPPConn),
+						// NAT配置应用（客户端侧）
+						NewNATClient(opts.NATConfig, opts.NATConfigurator),
 						// VPP xconnect（客户端侧）
 						xconnect.NewClient(opts.VPPConn),
 						// Memif机制（客户端侧）

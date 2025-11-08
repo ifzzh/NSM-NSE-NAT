@@ -17,7 +17,7 @@ COPY go.mod go.sum ./
 COPY ./internal/imports ./internal/imports
 RUN go build ./internal/imports
 COPY . .
-RUN go build -o /bin/app ./cmd
+RUN go build -o /bin/app ./cmd/nse-nat-vpp
 
 FROM build as test
 CMD go test -test.v ./...

@@ -1,0 +1,31 @@
+# Go build artifacts
+*.exe
+*.test
+vendor/
+*.out
+
+# Binary outputs
+/cmd/nse-nat-vpp/nse-nat-vpp
+/nse-nat-vpp
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+
+# Environment files
+.env*
+
+# OS files
+.DS_Store
+Thumbs.db
+*.tmp
+
+# Test coverage
+coverage.txt
+*.coverprofile
