@@ -136,14 +136,12 @@ func NewEndpoint(ctx context.Context, opts Options) *Endpoint {
 			clienturl.NewServer(opts.ConnectTo),
 			// VPP xconnect
 			xconnect.NewServer(opts.VPPConn),
-			// Memif机制支持（必须在NAT之前，因为memif会存储接口索引到元数据）
+			// Memif机制支持（Server侧）
 			mechanisms.NewServer(map[string]networkservice.NetworkServiceServer{
 				memif.MECHANISM: chain.NewNetworkServiceServer(
 					memif.NewServer(ctx, opts.VPPConn),
 				),
 			}),
-			// NAT配置应用（必须在memif之后，使用ifindex.Load从元数据加载接口索引）
-			NewNATServer(opts.NATConfig, opts.NATConfigurator),
 			// 连接到下游服务
 			connect.NewServer(
 				client.NewClient(
@@ -164,7 +162,8 @@ func NewEndpoint(ctx context.Context, opts Options) *Endpoint {
 						xconnect.NewClient(opts.VPPConn),
 						// Memif机制（客户端侧）
 						memif.NewClient(ctx, opts.VPPConn),
-						// NAT配置已移至Server侧统一处理（使用ifindex.Load从元数据加载两侧接口索引）
+						// NAT配置应用（必须在memif.NewClient之后，此时两侧接口索引都已存储到元数据）
+						NewNATClient(opts.NATConfig, opts.NATConfigurator),
 						// 发送文件描述符（客户端侧）
 						sendfd.NewClient(),
 						// 接收文件描述符（客户端侧）

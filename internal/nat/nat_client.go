@@ -31,7 +31,7 @@ import (
 	"github.com/networkservicemesh/api/pkg/api/networkservice"
 	"github.com/networkservicemesh/sdk/pkg/networkservice/core/next"
 	"github.com/networkservicemesh/sdk/pkg/tools/log"
-	"github.com/networkservicemesh/sdk/pkg/tools/postpone"
+	"github.com/networkservicemesh/sdk-vpp/pkg/tools/ifindex"
 
 	"github.com/networkservicemesh/cmd-nse-nat-vpp/pkg/config"
 	"github.com/networkservicemesh/cmd-nse-nat-vpp/pkg/vpp"
@@ -39,10 +39,10 @@ import (
 
 // natClient NAT配置客户端
 //
-// 实现NSM NetworkServiceClient接口，在客户端侧配置NAT outside接口。
-// 与natServer配合工作：
-//   - natServer (Server侧): 配置inside接口和地址池
-//   - natClient (Client侧): 配置outside接口
+// 实现NSM NetworkServiceClient接口，负责配置NAT inside和outside接口。
+// 在Client链中执行，可以访问Server侧和Client侧的接口索引：
+//   - Server侧接口索引由memif.NewServer()存储到metadata
+//   - Client侧接口索引由memif.NewClient()存储到metadata
 type natClient struct {
 	natConfig       *config.NATConfig
 	natConfigurator *vpp.NATConfigurator
@@ -68,12 +68,15 @@ func NewNATClient(natConfig *config.NATConfig, natConfigurator *vpp.NATConfigura
 	}
 }
 
-// Request 处理客户端连接请求并配置NAT outside接口
+// Request 处理客户端连接请求并配置NAT inside和outside接口
 //
 // 工作流程：
-//  1. 调用链中下一个元素（确保接口已创建）
-//  2. 提取Client侧接口索引
-//  3. 配置NAT outside接口
+//  1. 从metadata加载Server侧接口索引（inside接口）
+//  2. 从metadata加载Client侧接口索引（outside接口）
+//  3. 配置NAT inside接口
+//  4. 配置NAT outside接口
+//  5. 添加NAT地址池
+//  6. 调用链中下一个元素
 //
 // 参数：
 //   - ctx: 上下文
@@ -86,41 +89,50 @@ func NewNATClient(natConfig *config.NATConfig, natConfigurator *vpp.NATConfigura
 func (nc *natClient) Request(ctx context.Context, request *networkservice.NetworkServiceRequest, opts ...grpc.CallOption) (*networkservice.Connection, error) {
 	logger := log.FromContext(ctx).WithField("natClient", "Request")
 
-	// 延迟执行上下文（用于错误时清理）
-	postponeCtxFunc := postpone.ContextWithValues(ctx)
+	// 步骤1: 从元数据加载接口索引
+	// Server侧和Client侧的接口索引由memif在元数据中存储
+	// Server侧接口由memif.NewServer()存储，Client侧接口由memif.NewClient()存储
+	logger.Info("从元数据加载Server侧和Client侧接口索引")
 
-	// 调用链中下一个元素（确保VPP接口已创建）
-	conn, err := next.Client(ctx).Request(ctx, request, opts...)
-	if err != nil {
-		return nil, err
+	// 加载Server侧接口索引（inside接口，接收来自NSC的流量）
+	serverSideIfIndex, ok := ifindex.Load(ctx, false)
+	if !ok {
+		return nil, errors.New("failed to load server side interface index from metadata")
+	}
+	logger.Infof("加载Server侧接口索引: %d", serverSideIfIndex)
+
+	// 加载Client侧接口索引（outside接口，发送到外网的流量）
+	clientSideIfIndex, ok := ifindex.Load(ctx, true)
+	if !ok {
+		return nil, errors.New("failed to load client side interface index from metadata")
+	}
+	logger.Infof("加载Client侧接口索引: %d", clientSideIfIndex)
+
+	// 步骤2: 配置NAT inside接口
+	logger.Infof("配置NAT inside接口: %d", serverSideIfIndex)
+	if err := nc.natConfigurator.ConfigureInsideInterface(uint32(serverSideIfIndex)); err != nil {
+		return nil, errors.Wrapf(err, "failed to configure inside interface %d", serverSideIfIndex)
 	}
 
-	// 检查此连接是否已配置NAT
-	_, alreadyConfigured := nc.configuredConns.Load(conn.GetId())
-	if alreadyConfigured {
-		logger.Infof("NAT already configured for connection (client side): %s", conn.GetId())
-		return conn, nil
-	}
-
-	// 提取Client侧接口索引
-	logger.Info("提取Client侧接口索引")
-	clientSideIfIndex, err := ExtractInterfaceIndex(conn)
-	if err != nil {
-		return nil, nc.cleanupOnError(postponeCtxFunc, conn, errors.Wrap(err, "failed to extract client side interface index"), opts...)
-	}
-	logger.Infof("提取到Client侧接口索引: %d", clientSideIfIndex)
-
-	// 配置NAT outside接口
+	// 步骤3: 配置NAT outside接口
 	logger.Infof("配置NAT outside接口: %d", clientSideIfIndex)
-	if err = nc.natConfigurator.ConfigureOutsideInterface(clientSideIfIndex); err != nil {
-		return nil, nc.cleanupOnError(postponeCtxFunc, conn, errors.Wrapf(err, "failed to configure outside interface %d", clientSideIfIndex), opts...)
+	if err := nc.natConfigurator.ConfigureOutsideInterface(uint32(clientSideIfIndex)); err != nil {
+		return nil, errors.Wrapf(err, "failed to configure outside interface %d", clientSideIfIndex)
+	}
+
+	// 步骤4: 添加SNAT地址池（仅配置一次）
+	logger.Infof("添加NAT地址池: %s", nc.natConfig.NatIP)
+	if err := nc.natConfigurator.AddNATAddressPool(nc.natConfig.NatIP); err != nil {
+		return nil, errors.Wrapf(err, "failed to add NAT address pool %s", nc.natConfig.NatIP)
 	}
 
 	// 标记连接已配置NAT
-	nc.configuredConns.Store(conn.GetId(), true)
+	nc.configuredConns.Store(request.GetConnection().GetId(), true)
 
-	logger.Infof("NAT配置成功完成（客户端侧），连接ID: %s", conn.GetId())
-	return conn, nil
+	logger.Info("NAT基本配置完成")
+
+	// 步骤5: 调用链中的下一个元素
+	return next.Client(ctx).Request(ctx, request, opts...)
 }
 
 // Close 关闭连接并清理NAT配置
@@ -146,23 +158,3 @@ func (nc *natClient) Close(ctx context.Context, conn *networkservice.Connection,
 	return next.Client(ctx).Close(ctx, conn, opts...)
 }
 
-// cleanupOnError 错误时清理连接
-//
-// 参数：
-//   - postponeCtxFunc: 延迟执行上下文函数
-//   - conn: 要清理的连接
-//   - originalErr: 原始错误
-//   - opts: gRPC调用选项
-//
-// 返回：
-//   - 包含清理信息的错误
-func (nc *natClient) cleanupOnError(postponeCtxFunc func() (context.Context, context.CancelFunc), conn *networkservice.Connection, originalErr error, opts ...grpc.CallOption) error {
-	closeCtx, cancelClose := postponeCtxFunc()
-	defer cancelClose()
-
-	if _, closeErr := nc.Close(closeCtx, conn, opts...); closeErr != nil {
-		return errors.Wrapf(originalErr, "连接清理失败（客户端侧）: %s", closeErr.Error())
-	}
-
-	return originalErr
-}
