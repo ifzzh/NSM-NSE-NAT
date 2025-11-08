@@ -22,10 +22,9 @@ watch kubectl get pod -n ns-nse-composition -o wide
 
 kubectl exec -n ns-nse-composition deploy/nse-nat-vpp -- vppctl show acl-plugin acl
 
-kubectl logs -n ns-nse-composition alpine -c cmd-nsc-init > cmd-nsc-init.log
+kubectl logs -n ns-nse-composition alpine -c cmd-nsc-init > logs/cmd-nsc-init.log
 
-
-kubectl logs -n ns-nse-composition nse-nat  > nse-vpp.log
+kubectl logs -n ns-nse-composition nse-nat  > logs/nse-nat-vpp.log
 
 kubectl delete ns ns-nse-composition
 ```
