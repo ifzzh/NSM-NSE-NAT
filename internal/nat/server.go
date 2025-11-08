@@ -136,14 +136,14 @@ func NewEndpoint(ctx context.Context, opts Options) *Endpoint {
 			clienturl.NewServer(opts.ConnectTo),
 			// VPP xconnect
 			xconnect.NewServer(opts.VPPConn),
-			// NAT配置应用（替换原ACL）
-			NewNATServer(opts.NATConfig, opts.NATConfigurator),
-			// Memif机制支持
+			// Memif机制支持（必须在NAT之前，因为memif会存储接口索引到元数据）
 			mechanisms.NewServer(map[string]networkservice.NetworkServiceServer{
 				memif.MECHANISM: chain.NewNetworkServiceServer(
 					memif.NewServer(ctx, opts.VPPConn),
 				),
 			}),
+			// NAT配置应用（必须在memif之后，使用ifindex.Load从元数据加载接口索引）
+			NewNATServer(opts.NATConfig, opts.NATConfigurator),
 			// 连接到下游服务
 			connect.NewServer(
 				client.NewClient(
