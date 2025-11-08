@@ -216,6 +216,7 @@ cmd_delete() {
   read -r -p "Delete namespace '$NAMESPACE'? [y/N] " ans
   if [[ "$ans" =~ ^[Yy]$ ]]; then
     run kubectl delete ns "$NAMESPACE"
+    run clear
   else
     echo "Aborted."
   fi
