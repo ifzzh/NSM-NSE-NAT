@@ -161,9 +161,22 @@ wait_for_app_pods_ready() {
 
 cmd_full() {
   ensure_logs_dir
-  local cmdline_log="$(script_dir)/logs/cmdline.log"
+  local SD
+  SD="$(script_dir)"
+  local REPO_ROOT
+  REPO_ROOT="$SD/.."
+  local cmdline_log="$SD/logs/cmdline.log"
   # Capture all stdout/stderr from this block into cmdline.log while still showing on screen
   {
+    echo "=== GIT PULL (repo root) ==="
+    (
+      cd "$REPO_ROOT" && {
+        echo "+ cd $REPO_ROOT && git pull"
+        git pull || echo "WARN: git pull failed (continuing)" >&2
+      }
+    )
+    echo
+
     echo "=== APPLY ==="
     print_context
     echo "Applying kustomize from '$KUSTOMIZE_DIR'..."
@@ -192,6 +205,23 @@ cmd_full() {
 
     echo "=== DESCRIBE (app=$APP_LABEL) ==="
     cmd_describe || true
+    echo
+
+    echo "=== GIT COMMIT & PUSH LOGS (repo root) ==="
+    (
+      cd "$REPO_ROOT" && {
+        echo "+ cd $REPO_ROOT && git add ."
+        git add .
+        if ! git diff --cached --quiet; then
+          echo "+ git commit -m '推送logs'"
+          git commit -m "推送logs" || echo "WARN: git commit failed" >&2
+          echo "+ git push"
+          git push || echo "WARN: git push failed" >&2
+        else
+          echo "No changes to commit."
+        fi
+      }
+    )
     echo
 
     echo "=== DONE ==="

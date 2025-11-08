@@ -1,3 +1,7 @@
+=== GIT PULL (repo root) ===
++ cd /home/zhengzihao/NSM-NSE-APP/NSM-NSE-NAT/samenode-nat/.. && git pull
+Already up to date.
+
 === APPLY ===
 Kube context: kubernetes-admin@kubernetes
 Namespace:    ns-nse-composition
@@ -14,52 +18,52 @@ pod/alpine created
 === WAIT READY (app=nse-nat-vpp) ===
 Waiting for pods with label app=nse-nat-vpp to appear (timeout: 60s)...
 Found 1 pod(s) with app=nse-nat-vpp. Waiting for Ready (timeout: 180s)...
-pod/nse-nat-vpp-69878d8b77-klj2w condition met
+pod/nse-nat-vpp-5496694594-c7k9g condition met
 
 Current pods:
 NAME                           READY   STATUS     RESTARTS   AGE   IP           NODE     NOMINATED NODE   READINESS GATES
-alpine                         0/2     Init:0/1   0          13s   10.16.1.79   node01   <none>           <none>
-nse-kernel-5d96b8d6d5-2nqws    2/2     Running    0          13s   10.16.1.77   node01   <none>           <none>
-nse-nat-vpp-69878d8b77-klj2w   1/1     Running    0          13s   10.16.1.78   node01   <none>           <none>
+alpine                         0/2     Init:0/1   0          13s   10.16.1.82   node01   <none>           <none>
+nse-kernel-5d96b8d6d5-5brln    2/2     Running    0          13s   10.16.1.80   node01   <none>           <none>
+nse-nat-vpp-5496694594-c7k9g   1/1     Running    0          13s   10.16.1.81   node01   <none>           <none>
 
 === SLEEP 10s ===
 
 Current pods:
 NAME                           READY   STATUS     RESTARTS   AGE   IP           NODE     NOMINATED NODE   READINESS GATES
-alpine                         0/2     Init:0/1   0          23s   10.16.1.79   node01   <none>           <none>
-nse-kernel-5d96b8d6d5-2nqws    2/2     Running    0          23s   10.16.1.77   node01   <none>           <none>
-nse-nat-vpp-69878d8b77-klj2w   1/1     Running    0          23s   10.16.1.78   node01   <none>           <none>
+alpine                         0/2     Init:0/1   0          23s   10.16.1.82   node01   <none>           <none>
+nse-kernel-5d96b8d6d5-5brln    2/2     Running    0          23s   10.16.1.80   node01   <none>           <none>
+nse-nat-vpp-5496694594-c7k9g   1/1     Running    0          23s   10.16.1.81   node01   <none>           <none>
 
 === COLLECT LOGS ===
 Kube context: kubernetes-admin@kubernetes
 Namespace:    ns-nse-composition
 App label:    app=nse-nat-vpp
 Saving logs for alpine (container: cmd-nsc-init)
-Saving logs for nse-nat-vpp-69878d8b77-klj2w
+Saving logs for nse-nat-vpp-5496694594-c7k9g
 Logs written to /home/zhengzihao/NSM-NSE-APP/NSM-NSE-NAT/samenode-nat/logs/
 
 === DESCRIBE (app=nse-nat-vpp) ===
 Kube context: kubernetes-admin@kubernetes
 Namespace:    ns-nse-composition
 App label:    app=nse-nat-vpp
-+ kubectl describe pod -n ns-nse-composition nse-nat-vpp-69878d8b77-klj2w 
-Name:             nse-nat-vpp-69878d8b77-klj2w
++ kubectl describe pod -n ns-nse-composition nse-nat-vpp-5496694594-c7k9g 
+Name:             nse-nat-vpp-5496694594-c7k9g
 Namespace:        ns-nse-composition
 Priority:         0
 Service Account:  default
 Node:             node01/172.168.1.114
-Start Time:       Sat, 08 Nov 2025 21:17:08 +0800
+Start Time:       Sat, 08 Nov 2025 21:48:46 +0800
 Labels:           app=nse-nat-vpp
-                  pod-template-hash=69878d8b77
+                  pod-template-hash=5496694594
                   spiffe.io/spiffe-id=true
 Annotations:      k8s.v1.cni.cncf.io/network-status:
                     [{
                         "name": "kube-ovn",
                         "interface": "eth0",
                         "ips": [
-                            "10.16.1.78"
+                            "10.16.1.81"
                         ],
-                        "mac": "7a:4c:3e:c1:3d:75",
+                        "mac": "26:c2:05:71:92:96",
                         "default": true,
                         "dns": {},
                         "gateway": [
@@ -69,33 +73,33 @@ Annotations:      k8s.v1.cni.cncf.io/network-status:
                   ovn.kubernetes.io/allocated: true
                   ovn.kubernetes.io/cidr: 10.16.0.0/16
                   ovn.kubernetes.io/gateway: 10.16.0.1
-                  ovn.kubernetes.io/ip_address: 10.16.1.78
+                  ovn.kubernetes.io/ip_address: 10.16.1.81
                   ovn.kubernetes.io/logical_router: ovn-cluster
                   ovn.kubernetes.io/logical_switch: ovn-default
-                  ovn.kubernetes.io/mac_address: 7a:4c:3e:c1:3d:75
+                  ovn.kubernetes.io/mac_address: 26:c2:05:71:92:96
                   ovn.kubernetes.io/pod_nic_type: veth-pair
                   ovn.kubernetes.io/routed: true
 Status:           Running
-IP:               10.16.1.78
+IP:               10.16.1.81
 IPs:
-  IP:           10.16.1.78
-Controlled By:  ReplicaSet/nse-nat-vpp-69878d8b77
+  IP:           10.16.1.81
+Controlled By:  ReplicaSet/nse-nat-vpp-5496694594
 Containers:
   nse:
-    Container ID:   containerd://5b1216f1e9df2c326d0a2f2f918856b02937b33491adea21e5e089bd708664ff
-    Image:          ifzzh520/nse-nat-vpp:v1.0.4
-    Image ID:       docker.io/ifzzh520/nse-nat-vpp@sha256:35a19265b60f7a5b3206024e316da9cf8e256c1b6f44fcbaf62ce070e63f2327
+    Container ID:   containerd://ac53c406a1f8bc5a04117988712edb3bb592b2257a175bb08e8a6badfed00065
+    Image:          ifzzh520/nse-nat-vpp:v1.0.5
+    Image ID:       docker.io/ifzzh520/nse-nat-vpp@sha256:dd39d81fa1f29ac2e6b6abdd271c2d28d05bde843ae169b6650984c877dae213
     Port:           <none>
     Host Port:      <none>
     State:          Running
-      Started:      Sat, 08 Nov 2025 21:17:20 +0800
+      Started:      Sat, 08 Nov 2025 21:48:59 +0800
     Ready:          True
     Restart Count:  0
     Environment:
       NSM_SERVICE_NAME:        nse-composition
       NSM_LABELS:              app:nat
       SPIFFE_ENDPOINT_SOCKET:  unix:///run/spire/sockets/agent.sock
-      POD_NAME:                nse-nat-vpp-69878d8b77-klj2w (v1:metadata.name)
+      POD_NAME:                nse-nat-vpp-5496694594-c7k9g (v1:metadata.name)
       NSM_NAME:                $(POD_NAME)
       NSM_LOG_LEVEL:           TRACE
       NSM_CONNECT_TO:          unix:///var/lib/networkservicemesh/nsm.io.sock
@@ -103,7 +107,7 @@ Containers:
       /etc/nat/config.yaml from nat-config-volume (rw,path="config.yaml")
       /run/spire/sockets from spire-agent-socket (ro)
       /var/lib/networkservicemesh from nsm-socket (ro)
-      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-mbljx (ro)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-f66vv (ro)
 Conditions:
   Type              Status
   Initialized       True 
@@ -123,7 +127,7 @@ Volumes:
     Type:          HostPath (bare host directory volume)
     Path:          /var/lib/networkservicemesh
     HostPathType:  DirectoryOrCreate
-  kube-api-access-mbljx:
+  kube-api-access-f66vv:
     Type:                    Projected (a volume that contains injected data from multiple sources)
     TokenExpirationSeconds:  3607
     ConfigMapName:           kube-root-ca.crt
@@ -136,11 +140,12 @@ Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists fo
 Events:
   Type    Reason          Age   From               Message
   ----    ------          ----  ----               -------
-  Normal  Scheduled       24s   default-scheduler  Successfully assigned ns-nse-composition/nse-nat-vpp-69878d8b77-klj2w to node01
-  Normal  AddedInterface  24s   multus             Add eth0 [10.16.1.78/16] from kube-ovn
-  Normal  Pulling         24s   kubelet            Pulling image "ifzzh520/nse-nat-vpp:v1.0.4"
-  Normal  Pulled          12s   kubelet            Successfully pulled image "ifzzh520/nse-nat-vpp:v1.0.4" in 11.684s (11.684s including waiting)
-  Normal  Created         12s   kubelet            Created container nse
-  Normal  Started         12s   kubelet            Started container nse
+  Normal  Scheduled       24s   default-scheduler  Successfully assigned ns-nse-composition/nse-nat-vpp-5496694594-c7k9g to node01
+  Normal  AddedInterface  24s   multus             Add eth0 [10.16.1.81/16] from kube-ovn
+  Normal  Pulling         24s   kubelet            Pulling image "ifzzh520/nse-nat-vpp:v1.0.5"
+  Normal  Pulled          11s   kubelet            Successfully pulled image "ifzzh520/nse-nat-vpp:v1.0.5" in 12.315s (12.315s including waiting)
+  Normal  Created         11s   kubelet            Created container nse
+  Normal  Started         11s   kubelet            Started container nse
 
-=== DONE ===
+=== GIT COMMIT & PUSH LOGS (repo root) ===
++ cd /home/zhengzihao/NSM-NSE-APP/NSM-NSE-NAT/samenode-nat/.. && git add .
