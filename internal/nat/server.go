@@ -164,9 +164,7 @@ func NewEndpoint(ctx context.Context, opts Options) *Endpoint {
 						xconnect.NewClient(opts.VPPConn),
 						// Memif机制（客户端侧）
 						memif.NewClient(ctx, opts.VPPConn),
-						// NAT配置应用（客户端侧）
-						// 注意: 必须在memif之后,以确保vpp_sw_if_index参数已设置
-						NewNATClient(opts.NATConfig, opts.NATConfigurator),
+						// NAT配置已移至Server侧统一处理（使用ifindex.Load从元数据加载两侧接口索引）
 						// 发送文件描述符（客户端侧）
 						sendfd.NewClient(),
 						// 接收文件描述符（客户端侧）

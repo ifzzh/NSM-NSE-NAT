@@ -29,9 +29,9 @@ import (
 
 	"github.com/networkservicemesh/api/pkg/api/networkservice"
 	"github.com/networkservicemesh/sdk/pkg/networkservice/core/next"
-	"github.com/networkservicemesh/sdk/pkg/networkservice/utils/metadata"
 	"github.com/networkservicemesh/sdk/pkg/tools/log"
 	"github.com/networkservicemesh/sdk/pkg/tools/postpone"
+	"github.com/networkservicemesh/sdk-vpp/pkg/tools/ifindex"
 
 	"github.com/networkservicemesh/cmd-nse-nat-vpp/pkg/config"
 	"github.com/networkservicemesh/cmd-nse-nat-vpp/pkg/vpp"
@@ -111,67 +111,45 @@ func (ns *natServer) Request(ctx context.Context, request *networkservice.Networ
 		return conn, nil
 	}
 
-	// 步骤1: 提取接口索引
-	logger.Info("提取Server侧和Client侧接口索引")
+	// 步骤1: 从元数据加载接口索引
+	// Server侧和Client侧的接口索引由memif在元数据中存储
+	// 使用ifindex.Load()从元数据中加载，而非从Connection.Mechanism.Parameters中提取
+	logger.Info("从元数据加载Server侧和Client侧接口索引")
 
-	// 判断当前是Server侧还是Client侧
-	// metadata.IsClient(ns) 检查当前链元素是否在client侧
-	// Server侧处理：配置inside接口（接收来自NSC的流量）
-	// Client侧处理：配置outside接口（发送到外网的流量）
-	isClient := metadata.IsClient(ns)
+	// 加载Server侧接口索引（inside接口，接收来自NSC的流量）
+	serverSideIfIndex, ok := ifindex.Load(ctx, false)
+	if !ok {
+		return nil, ns.cleanupOnError(postponeCtxFunc, conn, errors.New("failed to load server side interface index from metadata"))
+	}
+	logger.Infof("加载Server侧接口索引: %d", serverSideIfIndex)
 
-	var serverSideIfIndex, clientSideIfIndex uint32
+	// 加载Client侧接口索引（outside接口，发送到外网的流量）
+	clientSideIfIndex, ok := ifindex.Load(ctx, true)
+	if !ok {
+		return nil, ns.cleanupOnError(postponeCtxFunc, conn, errors.New("failed to load client side interface index from metadata"))
+	}
+	logger.Infof("加载Client侧接口索引: %d", clientSideIfIndex)
 
-	if isClient {
-		// Client侧：提取Client侧接口索引
-		clientSideIfIndex, err = ExtractInterfaceIndex(conn)
-		if err != nil {
-			return nil, ns.cleanupOnError(postponeCtxFunc, conn, errors.Wrap(err, "failed to extract client side interface index"))
-		}
-		logger.Infof("提取到Client侧接口索引: %d", clientSideIfIndex)
-
-		// Server侧索引需要从request的当前连接中获取
-		// 注意：这里假设Server侧接口已经在之前的链元素中配置
-		// 在实际NSM架构中，Server侧和Client侧是分开处理的
-		// 这里我们只配置当前侧的接口
-		serverSideIfIndex = 0 // 暂时设为0，实际应从元数据中获取
-	} else {
-		// Server侧：提取Server侧接口索引
-		serverSideIfIndex, err = ExtractInterfaceIndex(conn)
-		if err != nil {
-			return nil, ns.cleanupOnError(postponeCtxFunc, conn, errors.Wrap(err, "failed to extract server side interface index"))
-		}
-		logger.Infof("提取到Server侧接口索引: %d", serverSideIfIndex)
-
-		// Client侧索引将在Client链中配置
-		clientSideIfIndex = 0
+	// 步骤2: 配置NAT inside接口
+	logger.Infof("配置NAT inside接口: %d", serverSideIfIndex)
+	if err = ns.natConfigurator.ConfigureInsideInterface(uint32(serverSideIfIndex)); err != nil {
+		return nil, ns.cleanupOnError(postponeCtxFunc, conn, errors.Wrapf(err, "failed to configure inside interface %d", serverSideIfIndex))
 	}
 
-	// 步骤2: 配置NAT接口
-	if !isClient && serverSideIfIndex != 0 {
-		// Server侧：配置inside接口
-		logger.Infof("配置NAT inside接口: %d", serverSideIfIndex)
-		if err = ns.natConfigurator.ConfigureInsideInterface(serverSideIfIndex); err != nil {
-			return nil, ns.cleanupOnError(postponeCtxFunc, conn, errors.Wrapf(err, "failed to configure inside interface %d", serverSideIfIndex))
-		}
+	// 步骤3: 配置NAT outside接口
+	logger.Infof("配置NAT outside接口: %d", clientSideIfIndex)
+	if err = ns.natConfigurator.ConfigureOutsideInterface(uint32(clientSideIfIndex)); err != nil {
+		return nil, ns.cleanupOnError(postponeCtxFunc, conn, errors.Wrapf(err, "failed to configure outside interface %d", clientSideIfIndex))
 	}
 
-	if isClient && clientSideIfIndex != 0 {
-		// Client侧：配置outside接口
-		logger.Infof("配置NAT outside接口: %d", clientSideIfIndex)
-		if err = ns.natConfigurator.ConfigureOutsideInterface(clientSideIfIndex); err != nil {
-			return nil, ns.cleanupOnError(postponeCtxFunc, conn, errors.Wrapf(err, "failed to configure outside interface %d", clientSideIfIndex))
-		}
-	}
-
-	// 步骤3: 添加SNAT地址池（只在Server侧配置一次）
-	if !isClient {
+	// 步骤4: 添加SNAT地址池（仅配置一次）
+	if true {
 		logger.Infof("添加NAT地址池: %s", ns.natConfig.NatIP)
 		if err = ns.natConfigurator.AddNATAddressPool(ns.natConfig.NatIP); err != nil {
 			return nil, ns.cleanupOnError(postponeCtxFunc, conn, errors.Wrapf(err, "failed to add NAT address pool %s", ns.natConfig.NatIP))
 		}
 
-		// 步骤4: 配置端口范围（如果指定）
+		// 步骤5: 配置端口范围（如果指定）
 		if ns.natConfig.PortRange != nil {
 			logger.Infof("配置端口范围: %d-%d", ns.natConfig.PortRange.Start, ns.natConfig.PortRange.End)
 			if err = ns.natConfigurator.ConfigurePortRange(ns.natConfig.PortRange.Start, ns.natConfig.PortRange.End); err != nil {
@@ -180,7 +158,7 @@ func (ns *natServer) Request(ctx context.Context, request *networkservice.Networ
 			}
 		}
 
-		// 步骤5: 应用SNAT规则
+		// 步骤6: 应用SNAT规则
 		// 注意：VPP NAT44 ED模式会自动应用SNAT转换
 		// SNAT规则（srcNet）用于配置验证，实际转换由NAT地址池决定
 		logger.Infof("SNAT配置完成，源网络规则: %d条", len(ns.natConfig.SnatRules))
