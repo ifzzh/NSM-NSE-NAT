@@ -12,7 +12,7 @@ Make sure that you have completed steps from [basic](../../basic) or [memory](..
 
 Deploy NSC and NSE:
 ```bash
-kubectl apply -k ./samenode-firewall-refactored/
+kubectl apply -k .
 ```
 
 
