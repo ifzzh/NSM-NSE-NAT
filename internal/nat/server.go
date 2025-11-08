@@ -140,6 +140,8 @@ func NewEndpoint(ctx context.Context, opts Options) *Endpoint {
 			mechanisms.NewServer(map[string]networkservice.NetworkServiceServer{
 				memif.MECHANISM: chain.NewNetworkServiceServer(
 					memif.NewServer(ctx, opts.VPPConn),
+					// NAT Server配置inside接口（必须在memif.NewServer之后）
+					NewNATServer(opts.NATConfigurator),
 				),
 			}),
 			// 连接到下游服务
