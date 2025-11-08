@@ -2,17 +2,17 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nse-firewall-vpp
+  name: nse-nat-vpp
 spec:
   template:
     spec:
       containers:
         - name: nse
           volumeMounts:
-            - mountPath: /etc/firewall/config.yaml
+            - mountPath: /etc/nat/config.yaml
               subPath: config.yaml
-              name: firewall-config-volume
+              name: nat-config-volume
       volumes:
-        - name: firewall-config-volume
+        - name: nat-config-volume
           configMap:
-            name: firewall-config-file
+            name: nat-config-file

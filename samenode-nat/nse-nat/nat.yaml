@@ -2,23 +2,23 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nse-firewall-vpp
+  name: nse-nat-vpp
   labels:
-    app: nse-firewall-vpp
+    app: nse-nat-vpp
 spec:
   selector:
     matchLabels:
-      app: nse-firewall-vpp
+      app: nse-nat-vpp
   template:
     metadata:
       labels:
-        app: nse-firewall-vpp
+        app: nse-nat-vpp
         "spiffe.io/spiffe-id": "true"
     spec:
       containers:
         - name: nse
-          image: ifzzh520/nsm-firewall-nse-refactored:v1.0.0
-          imagePullPolicy: IfNotPresent
+          image: ifzzh520/nse-nat-vpp:v1.0.0
+          imagePullPolicy: Always
           env:
             - name: SPIFFE_ENDPOINT_SOCKET
               value: unix:///run/spire/sockets/agent.sock

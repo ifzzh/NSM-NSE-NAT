@@ -8,7 +8,7 @@ resources:
 - config-file.yaml
 - sfc.yaml
 - client.yaml
-- nse-firewall
+- nse-nat
 - server.yaml
 
 

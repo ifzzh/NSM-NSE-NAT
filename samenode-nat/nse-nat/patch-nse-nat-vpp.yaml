@@ -2,7 +2,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nse-firewall-vpp
+  name: nse-nat-vpp
 spec:
   template:
     spec:
@@ -14,4 +14,4 @@ spec:
             - name: NSM_SERVICE_NAME
               value: "nse-composition"
             - name: NSM_LABELS
-              value: app:firewall
+              value: app:nat
